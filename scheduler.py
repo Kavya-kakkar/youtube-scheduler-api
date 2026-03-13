@@ -14,56 +14,65 @@ def check_and_upload_videos():
 
     db: Session = SessionLocal()
 
-    videos = db.query(models.Video).filter(
-        models.Video.status == "Pending",
-        models.Video.scheduled_time <= datetime.now()
-    ).all()
+    try:
+        videos = db.query(models.Video).filter(
+            models.Video.status == "Pending",
+            models.Video.scheduled_time <= datetime.now()
+        ).all()
 
-    for video in videos:
+        for video in videos:
 
-        try:
-            print(f"Uploading video ID {video.id}...")
+            try:
+                print(f"Uploading video ID {video.id}...")
 
-            # temp file location
-            local_file = f"uploads/temp_{video.id}.mp4"
+                # temporary file path
+                local_file = f"uploads/temp_{video.id}.mp4"
 
-            # download from Google Drive
-            download_from_drive(video.file_path, local_file)
+                # download video from Google Drive
+                download_from_drive(video.file_path, local_file)
 
-            print("Downloaded file from Google Drive")
+                print("Downloaded file from Google Drive")
 
-            # upload to YouTube
-            upload_video_to_youtube(
-                video.title,
-                video.description,
-                video.tags,
-                local_file,
-                video.is_short
-            )
+                # convert publish time to ISO format
+                publish_time = video.scheduled_time.isoformat() + "Z"
 
-            # update status
-            video.status = "Uploaded"
-            db.commit()
+                # upload to YouTube
+                video_id = upload_video_to_youtube(
+                    str(video.title),
+                    str(video.description),
+                    str(video.tags),
+                    local_file,
+                    str(video.privacy_status),
+                    publish_time
+                )
 
-            print("Upload successful")
+                print(f"Video uploaded successfully. ID: {video_id}")
 
-            # delete temp file after upload
-            if os.path.exists(local_file):
-                os.remove(local_file)
+                # update database status
+                video.status = "Uploaded"
+                db.commit()
 
-        except Exception as e:
-            print(f"Error uploading video ID {video.id}: {e}")
+                # delete temporary file
+                if os.path.exists(local_file):
+                    os.remove(local_file)
 
-    db.close()
+            except Exception as e:
+                print(f"Error uploading video ID {video.id}: {e}")
+
+    finally:
+        db.close()
 
 
 def start_scheduler():
 
-    # 🔹 CLEAN OLD TEMP FILES WHEN SERVER STARTS
+    # clean old temp files when server starts
     if os.path.exists("uploads"):
         for f in os.listdir("uploads"):
             if f.startswith("temp_"):
-                os.remove(os.path.join("uploads", f))
+                try:
+                    os.remove(os.path.join("uploads", f))
+                except:
+                    pass
 
     scheduler = BackgroundScheduler()
 
@@ -71,7 +80,10 @@ def start_scheduler():
         check_and_upload_videos,
         "interval",
         minutes=1,
-        max_instances=1
+        max_instances=3,
+        replace_existing=True
     )
 
     scheduler.start()
+
+    print("YouTube scheduler started...")

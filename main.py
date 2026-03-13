@@ -1,9 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 import os
 import shutil
+import pickle
+
+from google_auth_oauthlib.flow import Flow
 
 from scheduler import start_scheduler
 from google_drive_uploader import upload_to_drive
@@ -11,7 +15,18 @@ from google_drive_uploader import upload_to_drive
 import models
 from database import engine, Base, SessionLocal
 
+
 app = FastAPI()
+
+# OAuth settings
+CLIENT_SECRET_FILE = "client_secret.json"
+
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/drive.file"
+]
+
+REDIRECT_URI = "http://localhost:8000/auth/callback"
 
 # Enable CORS
 app.add_middleware(
@@ -28,14 +43,14 @@ Base.metadata.create_all(bind=engine)
 # Start scheduler
 start_scheduler()
 
-# Create uploads folder if not exists
+# Upload folder
 UPLOAD_FOLDER = "uploads"
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 
-# Dependency: Get DB session
+# Database dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -44,37 +59,37 @@ def get_db():
         db.close()
 
 
+# Upload + schedule video
 @app.post("/upload")
 def upload_video(
     title: str = Form(...),
     description: str = Form(...),
     tags: str = Form(...),
-    scheduled_time: str = Form(...),
+    scheduled_time: datetime = Form(...),
     repeat_weekly: bool = Form(False),
     is_short: bool = Form(False),
+    privacy_status: str = Form("private"),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
 
-    # Convert scheduled_time → datetime
-    scheduled_datetime = datetime.fromisoformat(scheduled_time)
-
-    # Save file locally first
+    # Save file locally
     file_location = os.path.join(UPLOAD_FOLDER, file.filename)
 
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Upload file to Google Drive
+    # Upload to Google Drive
     drive_file_id = upload_to_drive(file_location)
 
-    # Save video record in database
+    # Save video info in database
     new_video = models.Video(
         title=title,
         description=description,
         tags=tags,
-        file_path=drive_file_id,  # Save Drive file ID
-        scheduled_time=scheduled_datetime,
+        file_path=drive_file_id,
+        privacy_status=privacy_status,
+        scheduled_time=scheduled_time,
         repeat_weekly=repeat_weekly,
         status="Pending",
         is_short=is_short
@@ -88,6 +103,63 @@ def upload_video(
         "message": "Video scheduled successfully",
         "video_id": new_video.id,
         "google_drive_file_id": drive_file_id,
-        "is_short": new_video.is_short,
         "status": new_video.status
     }
+
+
+# Google OAuth login
+@app.get("/login")
+def login():
+
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRET_FILE,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+
+    authorization_url, state = flow.authorization_url(
+        access_type="offline",
+        prompt="consent"
+    )
+
+    return RedirectResponse(authorization_url)
+
+
+# OAuth callback
+@app.get("/auth/callback")
+def auth_callback(code: str):
+
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRET_FILE,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+
+    flow.fetch_token(code=code)
+
+    credentials = flow.credentials
+
+    # Save credentials
+    with open("user_token.pickle", "wb") as token:
+        pickle.dump(credentials, token)
+
+    return {"message": "YouTube channel connected successfully"}
+
+@app.get("/videos")
+def get_all_videos(db: Session = Depends(get_db)):
+
+    videos = db.query(models.Video).all()
+
+    return [
+        {
+            "id": video.id,
+            "title": video.title,
+            "description": video.description,
+            "tags": video.tags,
+            "privacy_status": video.privacy_status,
+            "scheduled_time": video.scheduled_time,
+            "status": video.status,
+            "is_short": video.is_short
+        }
+        for video in videos
+    ]

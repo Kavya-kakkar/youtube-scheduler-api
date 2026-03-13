@@ -1,79 +1,80 @@
 import os
 import pickle
-
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 
-def get_authenticated_service():
-
+def authenticate_youtube():
     creds = None
 
-    # Load existing token
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
+    if os.path.exists("youtube_token.pickle"):
+        with open("youtube_token.pickle", "rb") as token:
             creds = pickle.load(token)
 
-    # If credentials invalid → login again
     if not creds or not creds.valid:
-
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
-
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                "client_secret.json",
-                SCOPES
+                "client_secret.json", SCOPES
             )
-
             creds = flow.run_local_server(port=0)
 
-        # Save token
-        with open("token.pickle", "wb") as token:
+        with open("youtube_token.pickle", "wb") as token:
             pickle.dump(creds, token)
 
-    return build("youtube", "v3", credentials=creds)
+    youtube = build("youtube", "v3", credentials=creds)
+
+    return youtube
 
 
-def upload_video_to_youtube(title, description, tags, file_path, is_short=False):
+def upload_video_to_youtube(
+    title,
+    description,
+    tags,
+    file_path,
+    privacy_status="private",
+    publish_time=None,
+):
+    youtube = authenticate_youtube()
 
-    youtube = get_authenticated_service()
+    # Ensure values are correct types
+    title = str(title)
+    description = str(description)
+    privacy_status = str(privacy_status)
 
-    # If short → add hashtag
-    if is_short:
-        description = description + " #shorts"
+    if isinstance(tags, str):
+        tags = tags.split(",")
 
     request_body = {
         "snippet": {
             "title": title,
             "description": description,
-            "tags": tags.split(","),
-            "categoryId": "22"
+            "tags": tags,
+            "categoryId": "22",
         },
         "status": {
-            "privacyStatus": "private"
-        }
+            "privacyStatus": privacy_status
+        },
     }
 
-    media = MediaFileUpload(
-        file_path,
-        chunksize=-1,
-        resumable=True
-    )
+    # For scheduled publishing
+    if publish_time:
+        request_body["status"]["publishAt"] = publish_time
+
+    media_file = MediaFileUpload(file_path)
 
     request = youtube.videos().insert(
         part="snippet,status",
         body=request_body,
-        media_body=media
+        media_body=media_file
     )
 
     response = request.execute()
 
-    print("Upload complete!")
-    print("Video ID:", response["id"])
-
+    print("Video uploaded successfully.")
     return response["id"]
