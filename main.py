@@ -108,13 +108,6 @@ def upload_video(
 
 
 # Google OAuth login
-from google_auth_oauthlib.flow import Flow
-
-SCOPES = [
-    "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/drive.file"
-]
-
 @app.get("/login")
 def login():
     flow = Flow.from_client_secrets_file(
