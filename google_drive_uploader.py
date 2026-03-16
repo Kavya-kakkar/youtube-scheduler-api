@@ -1,39 +1,30 @@
 import os
-import pickle
 import io
-
+import pickle
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
+TOKEN_FILE = "drive_token.pickle"
+
 
 def authenticate_drive():
+
     creds = None
 
-    if os.path.exists("drive_token.pickle"):
-        with open("drive_token.pickle", "rb") as token:
+    # Load saved token
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, "rb") as token:
             creds = pickle.load(token)
 
-    if not creds or not creds.valid:
+    if not creds:
+        raise Exception("User not authenticated. Please login first.")
 
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+    drive_service = build("drive", "v3", credentials=creds)
 
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "client_secret.json",
-                SCOPES
-            )
-
-            creds = flow.run_local_server(port=0)
-
-        with open("drive_token.pickle", "wb") as token:
-            pickle.dump(creds, token)
-
-    return build("drive", "v3", credentials=creds)
+    return drive_service
 
 
 # Upload file to Google Drive
@@ -71,7 +62,7 @@ def download_from_drive(file_id, destination):
 
     done = False
 
-    while done is False:
+    while not done:
         status, done = downloader.next_chunk()
 
     print("Downloaded file from Google Drive")
