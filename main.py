@@ -108,18 +108,24 @@ def upload_video(
 
 
 # Google OAuth login
+from google_auth_oauthlib.flow import Flow
+
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/drive.file"
+]
+
 @app.get("/login")
 def login():
-
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRET_FILE,
+        "client_secret.json",
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
+        redirect_uri="http://localhost:8000/auth/callback"
     )
 
     authorization_url, state = flow.authorization_url(
         access_type="offline",
-        prompt="consent"
+        include_granted_scopes="true"
     )
 
     return RedirectResponse(authorization_url)
@@ -130,20 +136,19 @@ def login():
 def auth_callback(code: str):
 
     flow = Flow.from_client_secrets_file(
-        CLIENT_SECRET_FILE,
+        "client_secret.json",
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
+        redirect_uri="http://localhost:8000/auth/callback"
     )
 
     flow.fetch_token(code=code)
 
     credentials = flow.credentials
 
-    # Save credentials
-    with open("user_token.pickle", "wb") as token:
-        pickle.dump(credentials, token)
+    with open("youtube_token.json", "w") as token:
+        token.write(credentials.to_json())
 
-    return {"message": "YouTube channel connected successfully"}
+    return {"message": "Authentication successful"}
 
 @app.get("/videos")
 def get_all_videos(db: Session = Depends(get_db)):
