@@ -26,7 +26,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file"
 ]
 
-REDIRECT_URI = "http://localhost:8000/auth/callback"
+REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
 
 # Enable CORS
 app.add_middleware(
@@ -131,7 +131,7 @@ def auth_callback(code: str):
     flow = Flow.from_client_secrets_file(
         "client_secret.json",
         scopes=SCOPES,
-        redirect_uri="http://localhost:8000/auth/callback"
+        redirect_uri="https://youtube-scheduler-api.onrender.com/auth/callback"
     )
 
     flow.fetch_token(code=code)
