@@ -1,3 +1,5 @@
+from urllib import request
+
 from fastapi import FastAPI, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -134,7 +136,7 @@ def auth_callback(code: str):
         redirect_uri="https://youtube-scheduler-api.onrender.com/auth/callback"
     )
 
-    flow.fetch_token(code=code)
+    flow.fetch_token(authorization_response=request.url)
 
     credentials = flow.credentials
 
