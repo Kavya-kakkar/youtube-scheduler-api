@@ -8,7 +8,7 @@ import os
 import shutil
 import json
 
-from scheduler import start_scheduler
+from scheduler import check_and_upload_videos, start_scheduler
 from google_drive_uploader import upload_to_drive
 import models
 from database import engine, Base, SessionLocal
@@ -192,3 +192,8 @@ def upload_now(video_id: int, db: Session = Depends(get_db)):
         return {"message": f"Upload triggered for video {video_id}"}
     except Exception as e:
         return {"error": str(e)}
+    
+@app.get("/run-scheduler")
+def run_scheduler():
+    check_and_upload_videos()
+    return {"message": "Scheduler executed"}
