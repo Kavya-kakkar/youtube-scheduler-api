@@ -1,39 +1,34 @@
 import os
-import io
-from google.oauth2.credentials import Credentials
+import json
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from google.auth.transport.requests import Request
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
 
-SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-
-TOKEN_FILE = "token.json"
+TOKEN_FILE = "youtube_token.json"
 
 
 def authenticate_drive():
-    creds = None
-
-    # Load token
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE)
-
-    # If not logged in
-    if not creds:
+    if not os.path.exists(TOKEN_FILE):
         raise Exception("User not authenticated. Please login first.")
 
-    # Refresh token if expired
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+    with open(TOKEN_FILE, "r") as f:
+        token_data = json.load(f)
 
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
+    creds = Credentials(
+        token=token_data.get("access_token"),
+        refresh_token=token_data.get("refresh_token"),
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=os.getenv("CLIENT_ID"),
+        client_secret=os.getenv("CLIENT_SECRET"),
+        scopes=[
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/youtube.upload"
+        ]
+    )
 
-    drive_service = build("drive", "v3", credentials=creds)
-
-    return drive_service
+    return build("drive", "v3", credentials=creds)
 
 
-# Upload file to Google Drive
 def upload_to_drive(file_path):
     drive_service = authenticate_drive()
 
@@ -49,24 +44,4 @@ def upload_to_drive(file_path):
         fields="id"
     ).execute()
 
-    print("Uploaded to Google Drive:", file.get("id"))
-
     return file.get("id")
-
-
-# Download file from Google Drive
-def download_from_drive(file_id, destination):
-    drive_service = authenticate_drive()
-
-    request = drive_service.files().get_media(fileId=file_id)
-
-    fh = io.FileIO(destination, "wb")
-
-    downloader = MediaIoBaseDownload(fh, request)
-
-    done = False
-
-    while not done:
-        status, done = downloader.next_chunk()
-
-    print("Downloaded file from Google Drive")
