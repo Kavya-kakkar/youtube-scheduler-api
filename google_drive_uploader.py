@@ -28,6 +28,17 @@ def authenticate_drive():
 
     return build("drive", "v3", credentials=creds)
 
+def download_from_drive(file_id, output_path):
+    drive_service = authenticate_drive()
+
+    request = drive_service.files().get_media(fileId=file_id)
+
+    with open(output_path, "wb") as f:
+        downloader = request.execute()
+        f.write(downloader)
+
+    return output_path
+
 
 def upload_to_drive(file_path):
     drive_service = authenticate_drive()

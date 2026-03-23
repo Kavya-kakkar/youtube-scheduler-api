@@ -9,7 +9,6 @@ import models
 from youtube_uploader import upload_video_to_youtube
 from google_drive_uploader import download_from_drive
 
-
 def check_and_upload_videos():
 
     db: Session = SessionLocal()
