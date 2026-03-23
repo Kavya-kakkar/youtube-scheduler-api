@@ -179,3 +179,16 @@ def get_all_videos(db: Session = Depends(get_db)):
         }
         for video in videos
     ]
+
+@app.post("/upload-now/{video_id}")
+def upload_now(video_id: int, db: Session = Depends(get_db)):
+    from scheduler import check_and_upload_videos
+    # Temporarily upload only the video with this ID
+    video = db.query(models.Video).filter(models.Video.id == video_id).first()
+    if not video:
+        return {"error": "Video not found"}
+    try:
+        check_and_upload_videos()  # will pick pending videos
+        return {"message": f"Upload triggered for video {video_id}"}
+    except Exception as e:
+        return {"error": str(e)}
