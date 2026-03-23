@@ -11,7 +11,7 @@ def authenticate_drive():
     if not os.path.exists(TOKEN_FILE):
         raise Exception("User not authenticated. Please login first.")
 
-    with open(TOKEN_FILE, "r") as f:
+    with open("youtube_token.json") as f:
         token_data = json.load(f)
 
     creds = Credentials(
@@ -26,7 +26,7 @@ def authenticate_drive():
         ]
     )
 
-    return build("drive", "v3", credentials=creds)
+    return creds
 
 def download_from_drive(file_id, output_path):
     drive_service = authenticate_drive()
