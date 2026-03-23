@@ -47,6 +47,8 @@ def check_and_upload_videos():
                 )
 
                 print(f"✅ Uploaded successfully. YouTube ID: {video_id}")
+                youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+                print(f"🎉 Video uploaded! Watch it here: {youtube_url}")
 
                 # update DB
                 video.status = "Uploaded"
