@@ -118,7 +118,7 @@ def upload_video(
 @app.get("/login")
 def login():
     flow = Flow.from_client_config(
-        client_config,
+        client_config=CLIENT_SECRET_JSON,
         scopes=SCOPES,
         redirect_uri=REDIRECT_URI   # ✅ SAME everywhere
     )
