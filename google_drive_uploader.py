@@ -6,12 +6,14 @@ from google.oauth2.credentials import Credentials
 
 TOKEN_FILE = "youtube_token.json"
 
-
+# ------------------------
+# Authenticate and build Drive service
+# ------------------------
 def authenticate_drive():
     if not os.path.exists(TOKEN_FILE):
         raise Exception("User not authenticated. Please login first.")
 
-    with open("youtube_token.json") as f:
+    with open(TOKEN_FILE) as f:
         token_data = json.load(f)
 
     creds = Credentials(
@@ -26,20 +28,29 @@ def authenticate_drive():
         ]
     )
 
-    return creds
+    # ✅ Build the actual Drive service using the credentials
+    drive_service = build("drive", "v3", credentials=creds)
+    return drive_service
 
+
+# ------------------------
+# Download file from Drive
+# ------------------------
 def download_from_drive(file_id, output_path):
     drive_service = authenticate_drive()
 
     request = drive_service.files().get_media(fileId=file_id)
+    downloader = request.execute()
 
     with open(output_path, "wb") as f:
-        downloader = request.execute()
         f.write(downloader)
 
     return output_path
 
 
+# ------------------------
+# Upload file to Drive
+# ------------------------
 def upload_to_drive(file_path):
     drive_service = authenticate_drive()
 
