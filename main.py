@@ -50,11 +50,6 @@ def get_db():
         db.close()
 
 # ==============================
-# Scheduler
-# ==============================
-start_scheduler()
-
-# ==============================
 # Upload folder
 # ==============================
 UPLOAD_FOLDER = "uploads"
@@ -195,5 +190,6 @@ def upload_now(video_id: int, db: Session = Depends(get_db)):
     
 @app.get("/run-scheduler")
 def run_scheduler():
+    print("🔁 Manual scheduler triggered")
     check_and_upload_videos()
-    return {"message": "Scheduler executed"}
+    return {"message": "Scheduler executed - check logs"}

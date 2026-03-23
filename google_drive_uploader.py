@@ -37,13 +37,14 @@ def authenticate_drive():
 # Download file from Drive
 # ------------------------
 def download_from_drive(file_id, output_path):
-    drive_service = authenticate_drive()
+    creds = authenticate_drive()
+    drive_service = build("drive", "v3", credentials=creds)
 
     request = drive_service.files().get_media(fileId=file_id)
-    downloader = request.execute()
+    file_data = request.execute()
 
     with open(output_path, "wb") as f:
-        f.write(downloader)
+        f.write(file_data)
 
     return output_path
 
