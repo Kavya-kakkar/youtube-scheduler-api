@@ -117,38 +117,45 @@ def upload_video(
 # ==============================
 @app.get("/login")
 def login():
+    if not CLIENT_SECRET_JSON:
+        return {"error": "CLIENT_SECRET_JSON not set in environment"}
+
+    client_config = json.loads(CLIENT_SECRET_JSON)
+
     flow = Flow.from_client_config(
-        client_config=CLIENT_SECRET_JSON,
+        client_config,
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI   # ✅ SAME everywhere
+        redirect_uri=REDIRECT_URI
     )
 
     authorization_url, state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
-        prompt="consent"   # ensures refresh token
+        prompt="consent"
     )
 
     return RedirectResponse(authorization_url)
-
 # ==============================
 # OAuth Callback
 # ==============================
 @app.get("/auth/callback")
 def auth_callback(request: Request):
 
+    if not CLIENT_SECRET_JSON:
+        return {"error": "CLIENT_SECRET_JSON not set"}
+
+    client_config = json.loads(CLIENT_SECRET_JSON)
+
     flow = Flow.from_client_config(
-        client_config=CLIENT_SECRET_JSON,
+        client_config,
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI   # ✅ SAME here too
+        redirect_uri=REDIRECT_URI
     )
 
-    # Exchange code for token
     flow.fetch_token(authorization_response=str(request.url))
 
     credentials = flow.credentials
 
-    # Save token
     with open("youtube_token.json", "w") as token:
         token.write(credentials.to_json())
 
