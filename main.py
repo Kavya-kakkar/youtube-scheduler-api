@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import os
 import shutil
-
+import json
 from google_auth_oauthlib.flow import Flow
 from scheduler import start_scheduler
 from google_drive_uploader import upload_to_drive
@@ -18,7 +18,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 # ==============================
 # OAuth settings
 # ==============================
-CLIENT_SECRET_FILE = "client_secret.json"
+CLIENT_SECRET_JSON = os.getenv("CLIENT_SECRET_JSON")
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
@@ -117,8 +117,8 @@ def upload_video(
 # ==============================
 @app.get("/login")
 def login():
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRET_FILE,
+    flow = Flow.from_client_config(
+        client_config,
         scopes=SCOPES,
         redirect_uri=REDIRECT_URI   # ✅ SAME everywhere
     )
@@ -137,8 +137,8 @@ def login():
 @app.get("/auth/callback")
 def auth_callback(request: Request):
 
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRET_FILE,
+    flow = Flow.from_client_config(
+        client_config=CLIENT_SECRET_JSON,
         scopes=SCOPES,
         redirect_uri=REDIRECT_URI   # ✅ SAME here too
     )
