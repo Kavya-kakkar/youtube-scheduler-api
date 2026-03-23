@@ -1,5 +1,5 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 import os
 
@@ -15,49 +15,54 @@ def check_and_upload_videos():
     db: Session = SessionLocal()
 
     try:
+        now = datetime.now(timezone.utc)  # ✅ timezone safe
+
         videos = db.query(models.Video).filter(
             models.Video.status == "Pending",
-            models.Video.scheduled_time <= datetime.now()
+            models.Video.scheduled_time <= now
         ).all()
 
         for video in videos:
 
             try:
-                print(f"Uploading video ID {video.id}...")
+                print(f"🚀 Uploading video ID {video.id}...")
 
-                # temporary file path
+                # temp file
                 local_file = f"uploads/temp_{video.id}.mp4"
 
-                # download video from Google Drive
+                # download from Google Drive
                 download_from_drive(video.file_path, local_file)
+                print("✅ Downloaded from Google Drive")
 
-                print("Downloaded file from Google Drive")
-
-                # convert publish time to ISO format
-                publish_time = video.scheduled_time.isoformat() + "Z"
+                # YouTube requires RFC3339 format
+                publish_time = video.scheduled_time.astimezone(timezone.utc).isoformat()
 
                 # upload to YouTube
                 video_id = upload_video_to_youtube(
-                    str(video.title),
-                    str(video.description),
-                    str(video.tags),
-                    local_file,
-                    str(video.privacy_status),
-                    publish_time
+                    title=str(video.title),
+                    description=str(video.description),
+                    tags=str(video.tags),
+                    file_path=local_file,
+                    privacy_status=str(video.privacy_status),
+                    publish_time=publish_time
                 )
 
-                print(f"Video uploaded successfully. ID: {video_id}")
+                print(f"✅ Uploaded successfully. YouTube ID: {video_id}")
 
-                # update database status
+                # update DB
                 video.status = "Uploaded"
                 db.commit()
 
-                # delete temporary file
+                # cleanup
                 if os.path.exists(local_file):
                     os.remove(local_file)
 
             except Exception as e:
-                print(f"Error uploading video ID {video.id}: {e}")
+                print(f"❌ Error uploading video ID {video.id}: {e}")
+
+                # optional: mark as failed
+                video.status = "Failed"
+                db.commit()
 
     finally:
         db.close()
@@ -65,7 +70,7 @@ def check_and_upload_videos():
 
 def start_scheduler():
 
-    # clean old temp files when server starts
+    # clean old temp files
     if os.path.exists("uploads"):
         for f in os.listdir("uploads"):
             if f.startswith("temp_"):
@@ -78,12 +83,12 @@ def start_scheduler():
 
     scheduler.add_job(
         check_and_upload_videos,
-        "interval",
+        trigger="interval",
         minutes=1,
-        max_instances=3,
+        max_instances=1,   # ✅ prevent duplicate uploads
         replace_existing=True
     )
 
     scheduler.start()
 
-    print("YouTube scheduler started...")
+    print(" YouTube scheduler started...")

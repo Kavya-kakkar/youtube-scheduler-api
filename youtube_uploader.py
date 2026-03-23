@@ -1,31 +1,35 @@
 import os
-import pickle
+import json
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+
+TOKEN_FILE = "youtube_token.json"
 
 
 def authenticate_youtube():
     creds = None
 
-    if os.path.exists("youtube_token.pickle"):
-        with open("youtube_token.pickle", "rb") as token:
-            creds = pickle.load(token)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "client_secret.json", SCOPES
+    # Load saved token
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, "r") as token:
+            creds = Credentials.from_authorized_user_info(
+                json.load(token), SCOPES
             )
-            creds = flow.run_local_server(port=0)
 
-        with open("youtube_token.pickle", "wb") as token:
-            pickle.dump(creds, token)
+    # Refresh token if expired
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+
+        # Save updated token
+        with open(TOKEN_FILE, "w") as token:
+            token.write(creds.to_json())
+
+    if not creds:
+        raise Exception("❌ No valid credentials found. Please login first.")
 
     youtube = build("youtube", "v3", credentials=creds)
 
@@ -42,7 +46,7 @@ def upload_video_to_youtube(
 ):
     youtube = authenticate_youtube()
 
-    # Ensure values are correct types
+    # Ensure correct types
     title = str(title)
     description = str(description)
     privacy_status = str(privacy_status)
@@ -62,7 +66,7 @@ def upload_video_to_youtube(
         },
     }
 
-    # For scheduled publishing
+    # Scheduled publishing
     if publish_time:
         request_body["status"]["publishAt"] = publish_time
 
@@ -76,5 +80,5 @@ def upload_video_to_youtube(
 
     response = request.execute()
 
-    print("Video uploaded successfully.")
+    print("✅ Video uploaded successfully.")
     return response["id"]

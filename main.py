@@ -1,26 +1,23 @@
-from urllib import request
-
-from fastapi import FastAPI, UploadFile, File, Form, Depends
+from fastapi import FastAPI, UploadFile, File, Form, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 import os
 import shutil
-import pickle
 
 from google_auth_oauthlib.flow import Flow
-
 from scheduler import start_scheduler
 from google_drive_uploader import upload_to_drive
-
 import models
 from database import engine, Base, SessionLocal
 
 
 app = FastAPI()
-
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+# ==============================
 # OAuth settings
+# ==============================
 CLIENT_SECRET_FILE = "client_secret.json"
 
 SCOPES = [
@@ -30,7 +27,9 @@ SCOPES = [
 
 REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
 
-# Enable CORS
+# ==============================
+# CORS
+# ==============================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,20 +38,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create database tables
+# ==============================
+# Database
+# ==============================
 Base.metadata.create_all(bind=engine)
 
-# Start scheduler
-start_scheduler()
-
-# Upload folder
-UPLOAD_FOLDER = "uploads"
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-
-# Database dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -60,8 +50,22 @@ def get_db():
     finally:
         db.close()
 
+# ==============================
+# Scheduler
+# ==============================
+start_scheduler()
 
-# Upload + schedule video
+# ==============================
+# Upload folder
+# ==============================
+UPLOAD_FOLDER = "uploads"
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# ==============================
+# Upload + Schedule Video
+# ==============================
 @app.post("/upload")
 def upload_video(
     title: str = Form(...),
@@ -75,16 +79,16 @@ def upload_video(
     db: Session = Depends(get_db)
 ):
 
-    # Save file locally
     file_location = os.path.join(UPLOAD_FOLDER, file.filename)
 
+    # Save file locally
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     # Upload to Google Drive
     drive_file_id = upload_to_drive(file_location)
 
-    # Save video info in database
+    # Save to DB
     new_video = models.Video(
         title=title,
         description=description,
@@ -108,43 +112,54 @@ def upload_video(
         "status": new_video.status
     }
 
-
-# Google OAuth login
+# ==============================
+# Google OAuth Login
+# ==============================
 @app.get("/login")
 def login():
     flow = Flow.from_client_secrets_file(
-        "client_secret.json",
+        CLIENT_SECRET_FILE,
         scopes=SCOPES,
-        redirect_uri="http://localhost:8000/auth/callback"
+        redirect_uri=REDIRECT_URI   # ✅ SAME everywhere
     )
 
     authorization_url, state = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="true"
+        include_granted_scopes="true",
+        prompt="consent"   # ensures refresh token
     )
 
     return RedirectResponse(authorization_url)
 
-
-# OAuth callback
+# ==============================
+# OAuth Callback
+# ==============================
 @app.get("/auth/callback")
-def auth_callback(code: str):
+def auth_callback(request: Request):
 
     flow = Flow.from_client_secrets_file(
-        "client_secret.json",
+        CLIENT_SECRET_FILE,
         scopes=SCOPES,
-        redirect_uri="https://youtube-scheduler-api.onrender.com/auth/callback"
+        redirect_uri=REDIRECT_URI   # ✅ SAME here too
     )
 
-    flow.fetch_token(authorization_response=request.url)
+    # Exchange code for token
+    flow.fetch_token(authorization_response=str(request.url))
 
     credentials = flow.credentials
 
+    # Save token
     with open("youtube_token.json", "w") as token:
         token.write(credentials.to_json())
 
-    return {"message": "Authentication successful"}
+    return {
+        "message": "Authentication successful",
+        "status": "connected to Google"
+    }
 
+# ==============================
+# Get All Videos
+# ==============================
 @app.get("/videos")
 def get_all_videos(db: Session = Depends(get_db)):
 
