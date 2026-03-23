@@ -7,25 +7,23 @@ import requests
 import os
 import shutil
 import json
-from google_auth_oauthlib.flow import Flow
+
 from scheduler import start_scheduler
 from google_drive_uploader import upload_to_drive
 import models
 from database import engine, Base, SessionLocal
 
-
 app = FastAPI()
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 # ==============================
-# OAuth settings
+# OAuth Settings
 # ==============================
 CLIENT_SECRET_JSON = os.getenv("CLIENT_SECRET_JSON")
-
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/drive.file"
 ]
-
 REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
 
 # ==============================
@@ -60,7 +58,6 @@ start_scheduler()
 # Upload folder
 # ==============================
 UPLOAD_FOLDER = "uploads"
-
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -81,12 +78,10 @@ def upload_video(
 ):
 
     file_location = os.path.join(UPLOAD_FOLDER, file.filename)
-
-    # Save file locally
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Upload to Google Drive
+    # Upload to Google Drive (must read token inside this function)
     drive_file_id = upload_to_drive(file_location)
 
     # Save to DB
@@ -119,34 +114,32 @@ def upload_video(
 @app.get("/login")
 def login():
     client_config = json.loads(CLIENT_SECRET_JSON)
+    client_id = client_config["web"]["client_id"]
 
-    flow = Flow.from_client_config(
-        client_config,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
-
-    auth_url, _ = flow.authorization_url(
-        access_type="offline",
-        prompt="consent"
+    auth_url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth"
+        f"?response_type=code"
+        f"&client_id={client_id}"
+        f"&redirect_uri={REDIRECT_URI}"
+        f"&scope={' '.join(SCOPES)}"
+        f"&access_type=offline"
+        f"&prompt=consent"
     )
 
     return RedirectResponse(auth_url)
+
 # ==============================
 # OAuth Callback
 # ==============================
 @app.get("/auth/callback")
 def auth_callback(request: Request):
-
     code = request.query_params.get("code")
-
     if not code:
-        return {"error": "no code received"}
+        return {"error": "No code received"}
 
     client_config = json.loads(CLIENT_SECRET_JSON)["web"]
 
     token_url = "https://oauth2.googleapis.com/token"
-
     data = {
         "code": code,
         "client_id": client_config["client_id"],
@@ -161,23 +154,18 @@ def auth_callback(request: Request):
     if "access_token" not in token_data:
         return {"error": token_data}
 
-    # ✅ Save token
+    # Save token
     with open("youtube_token.json", "w") as f:
         json.dump(token_data, f)
 
-    return {
-        "message": "Authentication successful",
-        "token_saved": True
-    }
+    return {"message": "Authentication successful ✅"}
 
 # ==============================
 # Get All Videos
 # ==============================
 @app.get("/videos")
 def get_all_videos(db: Session = Depends(get_db)):
-
     videos = db.query(models.Video).all()
-
     return [
         {
             "id": video.id,
