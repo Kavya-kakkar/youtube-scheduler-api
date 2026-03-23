@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
+import requests
 import os
 import shutil
 import json
@@ -117,9 +118,6 @@ def upload_video(
 # ==============================
 @app.get("/login")
 def login():
-    if not CLIENT_SECRET_JSON:
-        return {"error": "CLIENT_SECRET_JSON not set in environment"}
-
     client_config = json.loads(CLIENT_SECRET_JSON)
 
     flow = Flow.from_client_config(
@@ -128,39 +126,48 @@ def login():
         redirect_uri=REDIRECT_URI
     )
 
-    authorization_url, state = flow.authorization_url(
+    auth_url, _ = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="true",
         prompt="consent"
     )
 
-    return RedirectResponse(authorization_url)
+    return RedirectResponse(auth_url)
 # ==============================
 # OAuth Callback
 # ==============================
 @app.get("/auth/callback")
 def auth_callback(request: Request):
 
-    if not CLIENT_SECRET_JSON:
-        return {"error": "CLIENT_SECRET_JSON not set"}
+    code = request.query_params.get("code")
 
-    client_config = json.loads(CLIENT_SECRET_JSON)
+    if not code:
+        return {"error": "no code received"}
 
-    flow = Flow.from_client_config(
-        client_config,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
+    client_config = json.loads(CLIENT_SECRET_JSON)["web"]
 
+    token_url = "https://oauth2.googleapis.com/token"
 
-    credentials = flow.credentials
+    data = {
+        "code": code,
+        "client_id": client_config["client_id"],
+        "client_secret": client_config["client_secret"],
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
 
-    with open("youtube_token.json", "w") as token:
-        token.write(credentials.to_json())
+    response = requests.post(token_url, data=data)
+    token_data = response.json()
+
+    if "access_token" not in token_data:
+        return {"error": token_data}
+
+    # ✅ Save token
+    with open("youtube_token.json", "w") as f:
+        json.dump(token_data, f)
 
     return {
         "message": "Authentication successful",
-        "status": "connected to Google"
+        "token_saved": True
     }
 
 # ==============================
