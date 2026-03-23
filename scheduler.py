@@ -9,19 +9,27 @@ import models
 from youtube_uploader import upload_video_to_youtube
 from google_drive_uploader import download_from_drive
 
-def check_and_upload_videos():
+from datetime import datetime, timezone
+import os
 
+def check_and_upload_videos():
     db: Session = SessionLocal()
 
+    print("🔁 Scheduler started running...")
+
     try:
-        now = datetime.now(timezone.utc)  # ✅ timezone safe
+        now = datetime.now(timezone.utc)
+        print(f"🕒 Current time: {now}")
 
         videos = db.query(models.Video).filter(
             models.Video.status == "Pending",
             models.Video.scheduled_time <= now
         ).all()
 
+        print(f"📦 Found {len(videos)} videos to upload")
+
         for video in videos:
+            print(f"🎯 Checking video ID {video.id}, scheduled at {video.scheduled_time}")
 
             try:
                 print(f"🚀 Uploading video ID {video.id}...")
@@ -32,9 +40,6 @@ def check_and_upload_videos():
                 # download from Google Drive
                 download_from_drive(video.file_path, local_file)
                 print("✅ Downloaded from Google Drive")
-
-                # YouTube requires RFC3339 format
-                publish_time = video.scheduled_time.astimezone(timezone.utc).isoformat()
 
                 # upload to YouTube
                 video_id = upload_video_to_youtube(
@@ -47,8 +52,6 @@ def check_and_upload_videos():
                 )
 
                 print(f"✅ Uploaded successfully. YouTube ID: {video_id}")
-                youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-                print(f"🎉 Video uploaded! Watch it here: {youtube_url}")
 
                 # update DB
                 video.status = "Uploaded"
@@ -59,15 +62,15 @@ def check_and_upload_videos():
                     os.remove(local_file)
 
             except Exception as e:
-                print(f"❌ Error uploading video ID {video.id}: {e}")
+                import traceback
+                print("❌ FULL ERROR:")
+                traceback.print_exc()
 
-                # optional: mark as failed
                 video.status = "Failed"
                 db.commit()
 
     finally:
         db.close()
-
 
 def start_scheduler():
 
