@@ -43,7 +43,7 @@ def check_and_upload_videos():
                     tags=str(video.tags),
                     file_path=local_file,
                     privacy_status=str(video.privacy_status),
-                    publish_time=publish_time
+                    publish_time=None
                 )
 
                 print(f"✅ Uploaded successfully. YouTube ID: {video_id}")
