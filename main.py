@@ -152,7 +152,6 @@ def auth_callback(request: Request):
         redirect_uri=REDIRECT_URI
     )
 
-    flow.fetch_token(authorization_response=str(request.url))
 
     credentials = flow.credentials
 
