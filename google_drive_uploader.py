@@ -5,25 +5,31 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
 TOKEN_FILE = "youtube_token.json"
-CLIENT_SECRET_FILE = "client_secret.json"
 
-# ------------------------
-# Authenticate and build Drive service
-# ------------------------
+# ==============================
+# Authenticate Drive (ENV FIX ✅)
+# ==============================
 def authenticate_drive():
+
+    # 🔴 Check token exists
     if not os.path.exists(TOKEN_FILE):
         raise Exception("User not authenticated. Please login first.")
 
-    # Load token
+    # ✅ Load token
     with open(TOKEN_FILE) as f:
         token_data = json.load(f)
 
-    # Load client secrets
-    with open(CLIENT_SECRET_FILE) as f:
-        client_config = json.load(f)["web"]
+    # ✅ Load client config from ENV (NO FILE ❌)
+    client_secret_json = os.getenv("CLIENT_SECRET_JSON")
 
+    if not client_secret_json:
+        raise Exception("CLIENT_SECRET_JSON not found")
+
+    client_config = json.loads(client_secret_json)["web"]
+
+    # ✅ Create credentials
     creds = Credentials(
-        token=token_data.get("access_token"),
+        token=token_data.get("token"),  # FIXED (was access_token ❌)
         refresh_token=token_data.get("refresh_token"),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=client_config["client_id"],
@@ -34,25 +40,31 @@ def authenticate_drive():
         ]
     )
 
-    # ✅ Auto refresh token if expired
+    # ==============================
+    # Auto refresh token
+    # ==============================
     if creds.expired and creds.refresh_token:
         from google.auth.transport.requests import Request
         creds.refresh(Request())
 
-        # Save updated token
+        # ✅ Save updated token
         with open(TOKEN_FILE, "w") as f:
             json.dump({
-                "access_token": creds.token,
-                "refresh_token": creds.refresh_token
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "client_id": client_config["client_id"],
+                "client_secret": client_config["client_secret"],
+                "scopes": creds.scopes
             }, f)
 
     drive_service = build("drive", "v3", credentials=creds)
     return drive_service
 
 
-# ------------------------
+# ==============================
 # Download file from Drive
-# ------------------------
+# ==============================
 def download_from_drive(file_id, output_path):
     drive_service = authenticate_drive()
 
@@ -65,9 +77,9 @@ def download_from_drive(file_id, output_path):
     return output_path
 
 
-# ------------------------
+# ==============================
 # Upload file to Drive
-# ------------------------
+# ==============================
 def upload_to_drive(file_path):
     drive_service = authenticate_drive()
 
