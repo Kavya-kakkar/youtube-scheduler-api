@@ -8,7 +8,7 @@ import os
 import shutil
 import json
 
-from scheduler import check_and_upload_videos, start_scheduler
+from scheduler import check_and_upload_videos
 from google_drive_uploader import upload_to_drive
 import models
 from database import engine, Base, SessionLocal
@@ -19,12 +19,17 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 # ==============================
 # OAuth Settings
 # ==============================
-CLIENT_SECRET_JSON = os.getenv("CLIENT_SECRET_JSON")
+CLIENT_SECRET_FILE = "client_secret.json"
+
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/drive.file"
 ]
-REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
+
+# 👉 IMPORTANT: change for local vs render
+REDIRECT_URI = "http://127.0.0.1:8000/auth/callback"
+# For Render use:
+# REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
 
 # ==============================
 # CORS
@@ -76,10 +81,9 @@ def upload_video(
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Upload to Google Drive (must read token inside this function)
+    # Upload to Google Drive
     drive_file_id = upload_to_drive(file_location)
 
-    # Save to DB
     new_video = models.Video(
         title=title,
         description=description,
@@ -108,20 +112,23 @@ def upload_video(
 # ==============================
 @app.get("/login")
 def login():
-    client_config = json.loads(CLIENT_SECRET_JSON)
-    client_id = client_config["web"]["client_id"]
+    with open(CLIENT_SECRET_FILE, "r") as f:
+        client_config = json.load(f)["web"]
 
-    auth_url = (
-        f"https://accounts.google.com/o/oauth2/v2/auth"
-        f"?response_type=code"
-        f"&client_id={client_id}"
-        f"&redirect_uri={REDIRECT_URI}"
-        f"&scope={' '.join(SCOPES)}"
-        f"&access_type=offline"
-        f"&prompt=consent"
-    )
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
 
-    return RedirectResponse(auth_url)
+    params = {
+        "client_id": client_config["client_id"],
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+
+    request_url = requests.Request("GET", auth_url, params=params).prepare().url
+
+    return RedirectResponse(request_url)
 
 # ==============================
 # OAuth Callback
@@ -129,12 +136,15 @@ def login():
 @app.get("/auth/callback")
 def auth_callback(request: Request):
     code = request.query_params.get("code")
+
     if not code:
         return {"error": "No code received"}
 
-    client_config = json.loads(CLIENT_SECRET_JSON)["web"]
+    with open(CLIENT_SECRET_FILE, "r") as f:
+        client_config = json.load(f)["web"]
 
     token_url = "https://oauth2.googleapis.com/token"
+
     data = {
         "code": code,
         "client_id": client_config["client_id"],
@@ -148,10 +158,17 @@ def auth_callback(request: Request):
 
     if "access_token" not in token_data:
         return {"error": token_data}
-
-    # Save token
+    
+    formatted_token = {
+    "token": token_data.get("access_token"),
+    "refresh_token": token_data.get("refresh_token"),
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "client_id": client_config["client_id"],
+    "client_secret": client_config["client_secret"],
+    "scopes": SCOPES
+    }
     with open("youtube_token.json", "w") as f:
-        json.dump(token_data, f)
+        json.dump(formatted_token, f)
 
     return {"message": "Authentication successful ✅"}
 
@@ -161,6 +178,7 @@ def auth_callback(request: Request):
 @app.get("/videos")
 def get_all_videos(db: Session = Depends(get_db)):
     videos = db.query(models.Video).all()
+
     return [
         {
             "id": video.id,
@@ -175,19 +193,25 @@ def get_all_videos(db: Session = Depends(get_db)):
         for video in videos
     ]
 
+# ==============================
+# Upload Now
+# ==============================
 @app.post("/upload-now/{video_id}")
 def upload_now(video_id: int, db: Session = Depends(get_db)):
-    from scheduler import check_and_upload_videos
-    # Temporarily upload only the video with this ID
     video = db.query(models.Video).filter(models.Video.id == video_id).first()
+
     if not video:
         return {"error": "Video not found"}
+
     try:
-        check_and_upload_videos()  # will pick pending videos
+        check_and_upload_videos()
         return {"message": f"Upload triggered for video {video_id}"}
     except Exception as e:
         return {"error": str(e)}
-    
+
+# ==============================
+# Run Scheduler
+# ==============================
 @app.get("/run-scheduler")
 def run_scheduler():
     print("🔁 Manual scheduler triggered")

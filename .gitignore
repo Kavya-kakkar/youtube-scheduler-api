@@ -6,4 +6,4 @@ drive_token.pickle
 client_secret.json
 videos.db
 uploads/
-youtube_token.pickle
+youtube_token.json
