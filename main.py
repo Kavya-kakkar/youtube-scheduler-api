@@ -27,9 +27,9 @@ SCOPES = [
 ]
 
 # 👉 IMPORTANT: change for local vs render
-REDIRECT_URI = "http://127.0.0.1:8000/auth/callback"
+# REDIRECT_URI = "http://127.0.0.1:8000/auth/callback"
 # For Render use:
-# REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
+REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
 
 # ==============================
 # CORS
