@@ -17,18 +17,21 @@ app = FastAPI()
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 # ==============================
-# OAuth Settings
+# OAuth Settings (ENV BASED ✅)
 # ==============================
-CLIENT_SECRET_FILE = "client_secret.json"
+
+client_secret_json = os.getenv("CLIENT_SECRET_JSON")
+
+if not client_secret_json:
+    raise Exception("CLIENT_SECRET_JSON not found in environment")
+
+client_config = json.loads(client_secret_json)["web"]
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/drive.file"
 ]
 
-# 👉 IMPORTANT: change for local vs render
-# REDIRECT_URI = "http://127.0.0.1:8000/auth/callback"
-# For Render use:
 REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
 
 # ==============================
@@ -81,7 +84,6 @@ def upload_video(
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Upload to Google Drive
     drive_file_id = upload_to_drive(file_location)
 
     new_video = models.Video(
@@ -108,13 +110,10 @@ def upload_video(
     }
 
 # ==============================
-# Google OAuth Login
+# Google OAuth Login ✅
 # ==============================
 @app.get("/login")
 def login():
-    with open(CLIENT_SECRET_FILE, "r") as f:
-        client_config = json.load(f)["web"]
-
     auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
 
     params = {
@@ -131,7 +130,7 @@ def login():
     return RedirectResponse(request_url)
 
 # ==============================
-# OAuth Callback
+# OAuth Callback ✅
 # ==============================
 @app.get("/auth/callback")
 def auth_callback(request: Request):
@@ -139,9 +138,6 @@ def auth_callback(request: Request):
 
     if not code:
         return {"error": "No code received"}
-
-    with open(CLIENT_SECRET_FILE, "r") as f:
-        client_config = json.load(f)["web"]
 
     token_url = "https://oauth2.googleapis.com/token"
 
@@ -158,15 +154,16 @@ def auth_callback(request: Request):
 
     if "access_token" not in token_data:
         return {"error": token_data}
-    
+
     formatted_token = {
-    "token": token_data.get("access_token"),
-    "refresh_token": token_data.get("refresh_token"),
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "client_id": client_config["client_id"],
-    "client_secret": client_config["client_secret"],
-    "scopes": SCOPES
+        "token": token_data.get("access_token"),
+        "refresh_token": token_data.get("refresh_token"),
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": client_config["client_id"],
+        "client_secret": client_config["client_secret"],
+        "scopes": SCOPES
     }
+
     with open("youtube_token.json", "w") as f:
         json.dump(formatted_token, f)
 
