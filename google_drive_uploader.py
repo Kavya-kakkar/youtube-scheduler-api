@@ -19,13 +19,17 @@ def authenticate_drive():
     with open(TOKEN_FILE) as f:
         token_data = json.load(f)
 
-    # ✅ Load client config from ENV (NO FILE ❌)
+    # ✅ Load client config
     client_secret_json = os.getenv("CLIENT_SECRET_JSON")
 
-    if not client_secret_json:
-        raise Exception("CLIENT_SECRET_JSON not found")
-
-    client_config = json.loads(client_secret_json)["web"]
+    if client_secret_json:
+        client_config = json.loads(client_secret_json)["web"]
+    else:
+        try:
+            with open("client_secret.json", "r") as f:
+                client_config = json.load(f)["web"]
+        except FileNotFoundError:
+            raise Exception("CLIENT_SECRET_JSON env variable not set, and client_secret.json file not found")
 
     # ✅ Create credentials
     creds = Credentials(

@@ -22,17 +22,21 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 client_secret_json = os.getenv("CLIENT_SECRET_JSON")
 
-if not client_secret_json:
-    raise Exception("CLIENT_SECRET_JSON not found in environment")
-
-client_config = json.loads(client_secret_json)["web"]
+if client_secret_json:
+    client_config = json.loads(client_secret_json)["web"]
+else:
+    try:
+        with open("client_secret.json", "r") as f:
+            client_config = json.load(f)["web"]
+    except FileNotFoundError:
+        raise Exception("CLIENT_SECRET_JSON env variable not set, and client_secret.json file not found")
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/drive.file"
 ]
 
-REDIRECT_URI = "https://youtube-scheduler-api.onrender.com/auth/callback"
+REDIRECT_URI = os.getenv("REDIRECT_URI", "https://youtube-scheduler-api.onrender.com/auth/callback")
 
 # ==============================
 # CORS
