@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YT Scheduler — Smart YouTube Publishing</title>
+  <meta name="description" content="Schedule and automate your YouTube video uploads with smart queuing, Google Drive integration, and real-time status tracking." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Background particles -->
+  <div class="bg-mesh"></div>
+  <div class="particles" id="particles"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <div class="nav-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" rx="6" fill="url(#logoGrad)"/>
+            <path d="M9.5 7.5L16.5 12L9.5 16.5V7.5Z" fill="white"/>
+            <defs>
+              <linearGradient id="logoGrad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FF0040"/>
+                <stop offset="1" stop-color="#9333EA"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="logo-text">YT<span class="logo-accent">Scheduler</span></span>
+      </div>
+      <div class="nav-links">
+        <a href="#schedule" class="nav-link" onclick="showSection('schedule')">Schedule</a>
+        <a href="#queue" class="nav-link" onclick="showSection('queue')">Queue</a>
+        <a href="#analytics" class="nav-link" onclick="showSection('analytics')">Analytics</a>
+      </div>
+      <div class="nav-actions">
+        <button class="btn-connect" id="connectBtn" onclick="connectGoogle()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Connect Google
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Automated Publishing
+      </div>
+      <h1 class="hero-title">
+        Schedule Your YouTube<br/>
+        <span class="gradient-text">Content Like a Pro</span>
+      </h1>
+      <p class="hero-subtitle">Upload once, publish on your schedule. Automate your entire YouTube content pipeline with Google Drive integration and smart queueing.</p>
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="showSection('schedule')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          Schedule a Video
+        </button>
+        <button class="btn-ghost" onclick="showSection('queue')">
+          View Queue
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-card">
+          <span class="stat-num" id="statTotal">0</span>
+          <span class="stat-label">Scheduled</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+          <span class="stat-num" id="statUploaded">0</span>
+          <span class="stat-label">Published</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+          <span class="stat-num" id="statPending">0</span>
+          <span class="stat-label">Pending</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="visual-card main-card">
+        <div class="card-header">
+          <div class="card-dots"><span></span><span></span><span></span></div>
+          <span class="card-title-sm">Next Scheduled</span>
+        </div>
+        <div class="upcoming-video" id="heroUpcoming">
+          <div class="uv-thumb">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M9.5 7.5L16.5 12L9.5 16.5V7.5Z" fill="white" opacity="0.8"/></svg>
+          </div>
+          <div class="uv-info">
+            <span class="uv-title">No videos scheduled</span>
+            <span class="uv-time">—</span>
+          </div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="heroProgress" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="visual-card side-card side-card-1">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Auto-published!</span>
+      </div>
+      <div class="visual-card side-card side-card-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Scheduled</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main App -->
+  <main class="app-main" id="appMain" style="display:none;">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <button class="sidebar-btn active" id="sb-schedule" onclick="switchTab('schedule')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Schedule
+        </button>
+        <button class="sidebar-btn" id="sb-queue" onclick="switchTab('queue')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Queue
+          <span class="badge" id="queueBadge">0</span>
+        </button>
+        <button class="sidebar-btn" id="sb-analytics" onclick="switchTab('analytics')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Analytics
+        </button>
+      </nav>
+      <button class="sidebar-scheduler-btn" onclick="triggerScheduler()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Run Scheduler
+      </button>
+    </aside>
+
+    <!-- Content -->
+    <div class="content-area">
+
+      <!-- Schedule Tab -->
+      <div class="tab-panel active" id="tab-schedule">
+        <div class="panel-header">
+          <h2>Schedule a Video</h2>
+          <p>Fill in your video details and pick a publish time</p>
+        </div>
+        <form class="upload-form" id="uploadForm" onsubmit="handleUpload(event)">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label for="videoFile">Video File</label>
+              <div class="dropzone" id="dropzone" onclick="document.getElementById('videoFile').click()">
+                <div class="dz-inner" id="dzInner">
+                  <div class="dz-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
+                  <p class="dz-text">Drop your video here or <span>browse files</span></p>
+                  <p class="dz-hint">MP4, MOV, AVI — Max 2GB</p>
+                </div>
+              </div>
+              <input type="file" id="videoFile" accept="video/*" style="display:none" onchange="handleFileSelect(this)" required/>
+            </div>
+
+            <div class="form-group full">
+              <label for="videoTitle">Video Title</label>
+              <input type="text" id="videoTitle" class="form-input" placeholder="Enter an engaging title..." required/>
+            </div>
+
+            <div class="form-group full">
+              <label for="videoDesc">Description</label>
+              <textarea id="videoDesc" class="form-input form-textarea" placeholder="Describe your video..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="videoTags">Tags</label>
+              <input type="text" id="videoTags" class="form-input" placeholder="tag1, tag2, tag3"/>
+            </div>
+
+            <div class="form-group">
+              <label for="scheduleTime">Schedule Time</label>
+              <input type="datetime-local" id="scheduleTime" class="form-input" required/>
+            </div>
+
+            <div class="form-group">
+              <label for="privacyStatus">Privacy</label>
+              <select id="privacyStatus" class="form-input form-select">
+                <option value="private">🔒 Private</option>
+                <option value="unlisted">🔗 Unlisted</option>
+                <option value="public">🌍 Public</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Options</label>
+              <div class="toggle-row">
+                <label class="toggle">
+                  <input type="checkbox" id="isShort"/>
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">YouTube Short</span>
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" id="repeatWeekly"/>
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Repeat Weekly</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-footer">
+            <div class="upload-progress" id="uploadProgress" style="display:none">
+              <div class="up-bar"><div class="up-fill" id="upFill"></div></div>
+              <span id="upLabel">Uploading...</span>
+            </div>
+            <button type="submit" class="btn-primary btn-submit" id="submitBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+              Schedule Video
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Queue Tab -->
+      <div class="tab-panel" id="tab-queue">
+        <div class="panel-header">
+          <h2>Video Queue</h2>
+          <p>All your scheduled and published videos</p>
+          <div class="filter-pills">
+            <button class="pill active" onclick="filterQueue('all', this)">All</button>
+            <button class="pill" onclick="filterQueue('Pending', this)">Pending</button>
+            <button class="pill" onclick="filterQueue('Uploaded', this)">Published</button>
+            <button class="pill" onclick="filterQueue('Failed', this)">Failed</button>
+          </div>
+        </div>
+        <div class="video-list" id="videoList">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9.5 8.5L15.5 12L9.5 15.5V8.5Z"/></svg>
+            </div>
+            <h3>No videos yet</h3>
+            <p>Schedule your first video to see it here</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics Tab -->
+      <div class="tab-panel" id="tab-analytics">
+        <div class="panel-header">
+          <h2>Analytics</h2>
+          <p>Publishing insights at a glance</p>
+        </div>
+        <div class="analytics-grid">
+          <div class="analytics-card">
+            <div class="ac-icon ac-blue">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+            </div>
+            <div class="ac-content">
+              <span class="ac-num" id="acTotal">0</span>
+              <span class="ac-label">Total Scheduled</span>
+            </div>
+          </div>
+          <div class="analytics-card">
+            <div class="ac-icon ac-green">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="ac-content">
+              <span class="ac-num" id="acUploaded">0</span>
+              <span class="ac-label">Published</span>
+            </div>
+          </div>
+          <div class="analytics-card">
+            <div class="ac-icon ac-yellow">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="ac-content">
+              <span class="ac-num" id="acPending">0</span>
+              <span class="ac-label">Pending</span>
+            </div>
+          </div>
+          <div class="analytics-card">
+            <div class="ac-icon ac-red">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="ac-content">
+              <span class="ac-num" id="acFailed">0</span>
+              <span class="ac-label">Failed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-section">
+          <div class="chart-card">
+            <h3>Status Breakdown</h3>
+            <div class="donut-wrap">
+              <canvas id="donutChart" width="200" height="200"></canvas>
+              <div class="donut-legend" id="donutLegend"></div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Recent Videos</h3>
+            <div class="recent-list" id="recentList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Success Modal -->
+  <div class="modal-overlay" id="successModal" style="display:none">
+    <div class="modal">
+      <div class="modal-icon success">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h3>Video Scheduled!</h3>
+      <p id="modalMsg">Your video has been added to the queue and will be published automatically.</p>
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="closeModal()">Done</button>
+        <button class="btn-ghost" onclick="switchTab('queue'); closeModal()">View Queue</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
